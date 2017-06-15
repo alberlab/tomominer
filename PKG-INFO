@@ -2,9 +2,9 @@ Metadata-Version: 1.0
 Name: tomominer
 Version: 1.0.0
 Summary: Subtomogram Analysis and Mining Software
-Home-page: UNKNOWN
-Author: Alber Lab (USC)
-Author-email: UNKNOWN
+Home-page: http://web.cmb.usc.edu/people/alber
+Author: Alber Lab (USC), Zachary Frazier
+Author-email: alber@usc.edu
 License: GPLv3
 Description: UNKNOWN
 Platform: x86_64
