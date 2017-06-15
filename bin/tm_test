@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+
+import logging
+
+from tomominer.test.runners import test_0
+
+if __name__ == '__main__':
+
+    import sys
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run a test of the tm_server and tm_worker code")
+
+    parser.add_argument('host',                             type=str,   help="tm_server hostname")
+    parser.add_argument('--port',           default=5011,   type=int,   help="tm_server port (default 5011)")
+    parser.add_argument('-n',               default=100,    type=int,   help="Number of tasks to generate")
+    parser.add_argument('-s', '--seed',     default=0,      type=int,   help="Seed for random number generator")
+    parser.add_argument('-m', '--mean',     default=1.00,   type=float, help="mean value to use in exponential distribution of wait times")
+    parser.add_argument('-f', '--fail',     default=0.0,    type=float, help="Rate of failure")
+    parser.add_argument('-e', '--exc',      default=0.0,    type=float, help="Rate of RuntimeError exceptions")
+    parser.add_argument('--tries',          default=1,      type=int, help="Max tries for each task")
+    parser.add_argument('--time',           default=20, type=float, help="Max time we allow a task to run")
+    parser.add_argument('-b', '--burst',           default=1, type=int, help="Set the number of concurrent copies of the task that can run.")
+    parser.add_argument("-v", "--verbose", dest="verbose_count", action="count", default=0, help="set verbosity")
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=max(3 - args.verbose_count, 0) * 10)
+
+
+    test_0(args.host, args.port, N=args.n, seed=args.seed, mean=args.mean, fail_rate=args.fail, exc_rate=args.exc, max_time=args.time, max_tries=args.tries)

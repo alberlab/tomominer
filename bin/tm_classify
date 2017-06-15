@@ -1,0 +1,478 @@
+#!/usr/bin/env python
+
+import random
+import time
+import uuid
+import os
+from collections import defaultdict, Counter
+from pprint import pprint
+import json
+import shutil
+import logging
+from multiprocessing.pool import ThreadPool as Pool
+import threading
+import ConfigParser
+
+import numpy as np
+from scipy.spatial.distance  import pdist, squareform
+from scipy.cluster.hierarchy import linkage, fcluster
+from sklearn.metrics     import silhouette_score
+
+from tomominer.classify.classify_config import config_options, parse_data
+
+from tomominer.core     import read_mrc, write_mrc, rotate_vol_pad_mean, rotate_mask
+from tomominer.cluster    import kmeans_clustering
+from tomominer.cluster    import hierarchical_clustering
+
+from tomominer.align.runners    import align_vols_to_templates, all_vs_all_alignment, one_vs_all_alignment, pairwise_alignment
+from tomominer.average.runners    import volume_average
+from tomominer.dim_reduce.runners   import covariance_filtered_pca
+
+
+
+
+def classify(vmal, tmp_dir, host, port, opt):
+  """
+  Classification Pipeline.
+
+  :param opt A dictionary of options, parsed from an options file.  The file
+        format is described in classify_config.py
+  :param vmal A list of subtomograms to classify.  The list is of tuples with
+        four values (volume, mask, angle, disp).  The volume and mask entries are
+        strings which give filesystem locations.  The angle is a ZYZ euler angle
+        rotation, and the displacement is a 3-component vector describing the
+        shift.  The angle and displacement are an initial estimate of the required
+        transformations necessary for alignment.
+  :param tmp_dir The location where we will store intermediate results.
+  :param host The hostname/IP address of the computer running the queue
+         server.  We will connect to this and use it's pool of processors for
+         computation.
+  :param port The port to connect to the queue host on.
+  """
+
+  start_time = time.time()
+
+  v = read_mrc(vmal[0][0])
+  vol_shape = v.shape
+
+  # Thread pool.
+  pool = Pool()
+
+  for p in range(1, opt.iterations+1):
+
+    pass_dir = os.path.join(tmp_dir,  'pass_%03d' % (p,))
+
+    if not os.path.exists(pass_dir):
+      os.makedirs(pass_dir)
+
+    json_file =  os.path.join(pass_dir, 'data_config_%03d.json' % (p,))
+
+    if os.path.exists(json_file):
+      logging.debug("Loading existing JSON Data file: %s and skipping to next pass.", json_file)
+
+      with open(json_file) as f:
+        json_data = json.load(f)
+      vmal = parse_data( json_data )
+
+      # use the vmal in this round and skip to the next iteration.
+      continue
+
+    # make sure that vmal does not contain duplicates:
+    counter = Counter(v[0] for v in vmal)
+    bad_list = [x[0] for x in counter.most_common() if x[1] > 1]
+    if bad_list:
+      raise Exception("Data contains duplicate tomograms: %s" % (bad_list))
+
+    start_time = time.time()
+    #
+    global_avg_vm = volume_average(host, port, vmal, vol_shape, pass_dir, opt.cluster_dimension_reduction_use_fft_avg)
+
+    logging.info("Global average computed: %2.6f" % (time.time() - start_time))
+
+    #
+    selected_templates = {}
+
+
+    if not opt.do_clustering:
+      logging.info("Using global average (do_clustering=False)")
+      #  simply performing global average (quasi Expection Maximization),
+      # no dimension reduction and clustering
+      vol_key, mask_key = global_avg_vm
+
+      new_vol_key  = os.path.join(pass_dir, 'template_vol_%03d_%03d.mrc'  % (p,0))
+      new_mask_key = os.path.join(pass_dir, 'template_mask_%03d_%03d.mrc' % (p,0))
+
+      shutil.copy(vol_key, new_vol_key)
+      shutil.copy(mask_key, new_mask_key)
+
+      selected_templates[0] = (new_vol_key, new_mask_key)
+
+    else:
+
+      start_time = time.time()
+      # First do dimension reduction.
+      cov_avg_file = os.path.join(pass_dir, 'cov_avg_%03d.npy' % (p))
+
+      dims      = opt.cluster_dimension_reduction_dims
+      max_features  = opt.cluster_dimension_reduction_max_features
+      n_iter      = opt.cluster_dimension_reduction_iterations
+      gauss_sigma   = opt.cluster_dimension_reduction_gauss_smoothing_sigma
+
+      dim_red_x = covariance_filtered_pca(host, port, vmal, dims, global_avg_vm, cov_avg_file, pass_dir, max_features=max_features, gauss_smoothing_sigma = gauss_sigma, n_iter = n_iter)
+
+      logging.info("Dimension Reduction: %2.6f sec" % (time.time() - start_time))
+
+      if opt.cluster_method == 'kmeans':
+
+        start_time = time.time()
+
+        k = opt.cluster_kmeans_k
+
+        labels = kmeans_clustering(dim_red_x, k)
+        logging.info("k-means: %2.6f sec" % (time.time() - start_time))
+
+
+        if dim_red_x.shape[0] < 1000:
+            dist = pdist(dim_red_x)
+            np.save(os.path.join(pass_dir, "distance_matrix_%03d.npy" % (p,)), squareform(dist))
+        else:
+            np.save(os.path.join(pass_dir, "distance_vectors_%03d.npy" % (p,)), dim_red_x)
+
+      elif opt.cluster_method == 'hierarchical':
+
+        labels, dist_sq = hierarchical_clustering(dim_red_x)
+        logging.info("Hierarchical clustering: %2.6f sec" % (time.time() - start_time))
+
+        np.save(os.path.join(pass_dir, 'distance_matrix_%03d.npy' % (p,)), dist_sq)
+
+      else:
+        raise Exception("Bad clustering method: \"%s\"" %(str(opt.cluster_method)))
+
+      if len(labels) < 1000:
+        logging.info("labels = %s", labels)
+      else:
+        logging.debug("labels = %s", labels)
+
+      # Using the cluster labels, we build cluster averages.
+      clusters = defaultdict(list)
+      for c, data in zip(labels, vmal):
+        clusters[c].append(data)
+
+      # remove clusters from set which are too small.
+      bad_clusters = [c for c in clusters if len(clusters[c]) < opt.cluster_min_size]
+      for c in bad_clusters:
+        clusters.pop(c)
+
+      logging.info("Cluster sizes after filters: %s", [(c,len(clusters[c])) for c in clusters])
+
+      # Compute cluster centers in parallel
+      logging.info("Active threads: %s", threading.active_count())
+
+      results = [pool.apply_async(volume_average, (host, port, clusters[c], vol_shape, pass_dir, opt.cluster_use_fft_avg)) for c in clusters]
+
+      cluster_centers = {}
+
+      for c,r in zip(clusters, results):
+        cluster_centers[c] = r.get()
+
+      best_label = [0 for _ in cluster_centers]
+
+      inf = float('inf')
+
+      centers_keys = [c for c in cluster_centers]
+      centers_list = [cluster_centers[c] for c in centers_keys]
+
+
+      # pairwise correlation.
+      corr,pw_align = pairwise_alignment(host, port, centers_list, opt.L)
+
+      # convert this to distances.
+
+      dist_sq = np.sqrt(2.0 - 2.0*corr)
+
+      logging.info("Correlation matrix: %s", corr)
+      logging.info("Dist Squared matrix: %s", dist_sq)
+
+      # convert to compressed form.
+      dist = squareform(dist_sq)
+
+      # perform hierarchical clustering.
+      link = linkage(dist)
+
+      # find the best level cut using silhouette score.
+      best_score = -inf
+      for i in range(link.shape[0]-1):
+        label = fcluster(link, link[i,2], criterion='distance')
+        score = silhouette_score(dist_sq, label, metric='precomputed')
+
+        if score > best_score:
+          best_score = score
+          best_label = label
+
+      logging.info("best label: %s", best_label)
+      # We now have a list of labels which each cluster belongs to.  For
+      # each label, find the largest cluster, align all other members to
+      # it.
+      #
+      # Note we are redoing some of the work carried out in the JSB
+      # method.
+
+      C = defaultdict(list)
+
+      for (c,l) in zip(cluster_centers, best_label):
+        C[l].append(c)
+
+
+      for l in C:
+        largest_key = max((len(clusters[c]),c) for c in C[l])[1]
+        other_keys  = [c for c in C[l] if c != largest_key]
+
+        other_centers = [ cluster_centers[c] for c in other_keys ]
+
+        results = one_vs_all_alignment(host, port, cluster_centers[largest_key], other_centers, opt.L)
+
+        # remove all cluster centers that are too similar to the largest.
+        # save transformations for the rest of the centers that align it to
+        # the largest.
+        transforms = {}
+        if len(other_keys):
+          logging.info("Center alignments for cluster %s", l)
+        for c,res in zip(other_keys, results):
+          score, loc, ang = res
+          logging.info("label: %s, center: %s, score: %s, ang: %s, loc: %s", l, c, score, ang, loc)
+
+          if score > opt.template_align_corr_threshold:
+            cluster_centers.pop(c)
+          else:
+            transforms[c] = (loc, ang)
+
+        def rotate_center(vk,mk,a,l):
+          v = read_mrc(vk)
+          m = read_mrc(mk)
+          v = rotate_vol_pad_mean(v,a,l)
+          m = rotate_mask(m,a)
+          write_mrc(v, vk)
+          write_mrc(m, mk)
+
+        # Rotate all of the centers to the aligned position and save.
+        results = []
+        for c in transforms:
+          vk,  mk  = cluster_centers[c]
+          loc,ang = transforms[c]
+          results.append(pool.apply_async(rotate_center, (vk,mk,ang,loc)))
+
+        for r in results:
+          r.get()
+
+      # Save the cluster centers as templates.
+      selected_templates = {}
+
+      for k, (vol_key, mask_key) in cluster_centers.items():
+        new_vol_key  = os.path.join(pass_dir, 'template_vol_%03d_%03d.mrc'  % (p,k))
+        new_mask_key = os.path.join(pass_dir, 'template_mask_%03d_%03d.mrc' % (p,k))
+        shutil.copy(vol_key, new_vol_key)
+        shutil.copy(mask_key, new_mask_key)
+        selected_templates[k] = (new_vol_key, new_mask_key)
+
+    if opt.given_templates:
+
+      raise Exception("Untested code path!")
+
+      selected_templates = merge_templates(selected_templates, opt.given_templates)
+
+      ## if there are pregiven templates, align the cluster averages against these templates
+      #if opt.template_given_references != None:  
+      #  tasks = []
+      #  for tem_t in selected_templates:
+      #    tasks.append(runner.task("align_and_transform_vols_against_templates", tem_t, opt.template_given_references, opt.L))
+      #  ataat_ress = [_ for _ in runner.run__except(tasks)]  
+
+      #  selected_templates_new = opt.template_given_references    # mxu: also include the pre-given reference templates for alignment
+      #  for ataat_res in ataat_ress:
+      #    selected_templates_new.append( (ataat_res.result['vol_r_key'], ataat_res.result['vol_mask_r_key']) )
+      #  
+      #  selected_templates = selected_templates_new
+
+    # Align each volume against all templates.
+
+    # For each data entry, we will compute the best matching template.  We
+    # will collect the best scores, and save the transformations that lead
+    # to that score.
+    results = align_vols_to_templates(host, port, vmal, selected_templates, opt.L)
+
+    # We want to save the subtomograms and the related data in the same
+    # order that the data appears in the original data file.
+
+    # First save the location in the vmal structure of every tomomgram.
+    vmal_idx = {}
+    for i,v in enumerate(vmal):
+      vmal_idx[v[0]] = i
+
+    # This is where we will be putting the data.
+    json_data = [None for _ in range(len(vmal))]
+
+    bad_cnt = 0
+    for r in results:
+      i = vmal_idx[r[0][0]]
+      if r[1][1] is None:
+        bad_cnt += 1
+        logging.warn("No transformations for %s, replacing with zeros.  Original r = %s" % (r[0][0],r))
+        r = (r[0], (0, (0, (0,0,0), (0,0,0))))
+
+      json_data[i] = dict(subtomogram = r[0][0],
+                mask    = r[0][1],
+                angle     = r[1][1][2],
+                loc     = r[1][1][1],
+                template  = selected_templates[r[1][0]],
+                label     = r[1][0])
+
+    if bad_cnt > 0:
+      logging.warn("Bad transformations for %s of %s" % (bad_cnt, len(json_data)))
+
+    # renumber labels sequentially starting with 0.
+    unique_labels = set([_['label'] for _ in json_data])
+    unique_labels = dict( (x[1],x[0]) for x in enumerate(unique_labels) )
+
+    logging.info("unique_labels: %s", unique_labels)
+
+    for r in json_data:
+      r['label'] = unique_labels[r['label']]
+
+
+    labels = np.array([_['label'] for _ in json_data])
+    logging.info("labels: %s", labels)
+    count = Counter(labels)
+    for c in count:
+      logging.info("label counts: %s", [c, count[c]])
+
+    write_json_data(json_data, json_file)
+    vmal = parse_data(json_data)
+
+  return json_data
+
+def write_json_data(data, json_file):
+  json_data = []
+
+  for d in data:
+    # numpy arrays are not pickle-able.  Convert to a list of numbers.
+    d['angle']   = tuple(d['angle'])
+    d['loc']   = tuple(d['loc'])
+    json_data.append(d)
+
+  for d in json_data:
+    try:
+      json.dumps(d)
+    except Exception, e:
+      print "Failed to dump record:"
+      print d
+      print e
+
+  # write new data to disk
+  with open(json_file, 'w') as f:
+    json.dump(json_data, f, indent=2)
+
+
+if __name__ == '__main__':
+
+  import sys
+  import argparse
+
+  # Uncomment to debug command line/config file for parsing.
+  logging.basicConfig(level=logging.DEBUG,
+                      format='%(asctime)-15s %(name)-10s %(levelname)-8s %(message)s')
+
+  # first pull out configuration file.
+  parser = argparse.ArgumentParser()
+  parser.add_argument("-c", "--conf_file", help="Specify config file", metavar="FILE")
+  args, remaining_argv = parser.parse_known_args()
+
+
+  options = {
+    "host"        : "127.0.0.1",
+    "port"        : 5011,
+    "data"        : "data.json",
+    "tmp_dir"     : "/tmp/",
+    "iterations"  : 10,
+    "cluster_dimension_reduction_dims"                  : 100,
+    "cluster_dimension_reduction_max_features"          : 1000,
+    "cluster_dimension_reduction_iterations"            : 15,
+    "cluster_dimension_reduction_use_fft_avg"           : True,
+    "cluster_dimension_reduction_gauss_smoothing_sigma" : 0.0,
+    "cluster_use_fft_avg"           : True,
+    "cluster_min_size"              : 0,
+    "do_clustering"                 : False,
+    "cluster_method"                : None,
+    "cluster_kmeans_k"              : 0,
+    "cluster_kmeans_iterations"     : 10,
+    "template_align_corr_threshold" : 1.0,
+    "given_templates"               : [],
+    "L"                             : 36,
+  }
+
+  logging.info("Default options:")
+  for p in options:
+    logging.info("\t%s = %s" % (p, options[p]))
+
+  if args.conf_file:
+    config = ConfigParser.SafeConfigParser()
+    config.read([args.conf_file])
+    #options.update(config.items('classify'))
+    classify_opts = config.items("classify")
+
+    for p,v in classify_opts:
+      if p not in options:
+        logging.error("Invalid option found in configuration file: %s" % (p,))
+        sys.exit(1)
+      options[p] = v
+
+    logging.info("Options after config file parser:")
+    for p in options:
+      logging.info("\t%s = %s" % (p, options[p]))
+  else:
+    logging.info("No configuration file specified (-c|--config)")
+
+  parser.set_defaults(**options)
+  parser.add_argument(      '--host',       type=str,   help="Address of TomoMiner server (default 127.0.0.1)")
+  parser.add_argument('-p', '--port',       type=int,   help="Port of TomoMiner server (default 5011)")
+  parser.add_argument('-d', '--data',       type=str,   help="Data VMAL file")
+  parser.add_argument('-t', '--tmp_dir',    type=str,   help="Temporary file location.")
+  parser.add_argument('-L',                 type=int,   help="Angular resolution parameter (2*pi/L is sampling).")
+  parser.add_argument('-n', '--iterations', type=int,   help="Number of averaging rounds to run.")
+
+  parser.add_argument('--cluster_dimension_reduction_dims',         type=int, help="")
+  parser.add_argument('--cluster_dimension_reduction_max_features', type=int, help="")
+  parser.add_argument('--cluster_dimension_reduction_iterations',   type=int, help="")
+  parser.add_argument('--cluster_dimension_reduction_use_fft_avg',  type=int, help="")
+  parser.add_argument('--cluster_use_fft_avg',                      type=int, help="")
+  parser.add_argument('--cluster_min_size',                         type=int, help="")
+  parser.add_argument('--do_clustering',                            type=bool, help="")
+  parser.add_argument('--cluster_method',                           type=str, help="")
+  parser.add_argument('--cluster_kmeans_k',                         type=int, help="")
+  parser.add_argument('--cluster_kmeans_iterations',                type=int, help="")
+  parser.add_argument('--template_align_corr_threshold',            type=int, help="")
+  parser.add_argument('--given_templates',                          type=list, help="")
+  parser.add_argument('--L',                                        type=int, help="")
+
+  parser.add_argument('-v',   '--verbose', dest="verbose_count", action="count", default=0, help="set verbosity")
+  args = parser.parse_args(remaining_argv)
+
+  for p in vars(args):
+    if p not in options:
+      if p in ["verbose_count", "conf_file"]:
+        continue
+      logging.error("Invalid option found in parsed command line: %s" % (p,))
+      sys.exit(1)
+
+  logging.info("Options after parsing command line:")
+  for p in vars(args):
+    logging.info("\t%s = %s" % (p, vars(args)[p]))
+
+  logging.getLogger().setLevel(level=max(3 - args.verbose_count, 0) * 10)
+
+
+  with open(args.data) as f:
+    conf = json.load(f)
+
+  data = parse_data(conf)
+
+  classify(data, args.tmp_dir, args.host, args.port, args)

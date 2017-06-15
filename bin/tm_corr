@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+"""
+Compute the correlation between two subtomograms.
+
+Usage:
+    tm_corr V1 V2 M L
+
+"""
+
+
+if __name__ == '__main__':
+
+    import sys
+    import numpy as np
+    from tomominer.core import read_mrc, combined_search
+
+    if len(sys.argv) not in (3,4):
+        print "Usage:"
+        print "tm_corr volume_1.mrc volume_2.mrc [ L ]"
+        sys.exit(-1)
+
+    v1 = sys.argv[1]
+    v2 = sys.argv[2]
+
+    if len(sys.argv) == 4:
+        try:
+            L = int(sys.argv[3])
+        except:
+            print "L must be an integer."
+            sys.exit(-2)
+    else:
+        L = 36
+
+    v1 = read_mrc(v1)
+    v2 = read_mrc(v2)
+    m  = np.ones(v1.shape)
+
+    res = combined_search(v1, m, v2, m, L)
+    # each element of res is (score, location, angle)
+
+    # if search failed, return a score of zero.
+    if not res:
+        res = [(0.0, None, None)]
+
+    print res[0][0]

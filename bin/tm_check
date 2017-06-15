@@ -1,0 +1,103 @@
+#!/usr/bin/env python
+
+import os
+
+import sys
+import json
+
+import numpy as np
+
+from tomominer.core import read_mrc
+
+def parse_vmal(data):
+    """
+    Parse data on subtomogram locations, and transformations.
+
+    :param data Data string in json format
+
+    The JSON object is assumed to be a list of dictionaries.  Each dictionary
+    is checked for four keys.  subtomogram, mask, angle, and loc.  The
+    subtomogram is the only required field.  It must give a disk location for
+    loading the subtomogram.  The mask is also a file location but is optional.
+    The angle and loc are both arrays of length 3.  The angle is parsed as a
+    ZYZ Euler angle.  The loc is the displacement shift for alignment.
+
+    {'subtomogram' : '/path/to/subtomo.mrc', 'mask' : '/path/to/mask.mrc', 'angle' : [0, 0, 0], 'loc' : [0, 0, 0]}
+
+    Any missing data is filled in, and a list data structure, with a list of
+    tuples for each record is returned.
+    """
+
+    subs = []
+    for record in data:
+        if 'subtomogram' not in record:
+            raise Exception(repr(record))
+        vol_path = record['subtomogram']
+
+        if 'mask' not in record:
+            raise Exception(repr(record))
+        mask_path = record['mask']
+
+        if 'angle' in record:
+            if len(record['angle']) != 3:
+                raise
+            ang = np.array([float(_) for _ in record['angle']])
+        else:
+            ang = np.zeros(3, dtype=np.float)
+
+        if "loc" in record:
+            if len(record["loc"]) != 3:
+                raise
+            loc = np.array([float(_) for _ in record["loc"]])
+        else:
+            loc = np.zeros(3, dtype=np.float)
+        subs.append((str(vol_path), str(mask_path), ang, loc))
+    return subs
+
+
+def check(data):
+
+
+    verbose = False
+
+
+    vol_cnt = Counter()
+
+    for v,m,a,l in data:
+
+        vol_cnt[v] += 1
+
+        vol = read_mrc(v)
+
+        if np.any(np.isnan(vol)):
+            print "volume %s contains NaN!" % (v,)
+
+    for vc in takewhile(lambda x: x[1] > 1, vol_cnt.most_common()):
+        print "Volume %s occurs %d times!" % vc
+
+if __name__ == '__main__':
+
+    import sys
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Check a TomoMiner data configuration file.")
+
+    parser.add_argument('-v', '--verbose', default=0, action="count", help="set verbosity")
+    parser.add_argument('config', metavar='config', type=str, nargs='+', help='data configuration files to be checked.')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=max(3 - args.verbose, 0) * 10,
+                        format='%(asctime)-15s %(name)-10s %(levelname)-8s %(message)s')
+
+    for filename in args.config:
+        try:
+            f = open(filename)
+        except:
+            logging.error("Failed to open file:", filename)
+        try:
+            data = json.load(f)
+            data = parse_vmal(data)
+            check(data)
+        except:
+            logging.error("Failed to read/parse file:" , filename)

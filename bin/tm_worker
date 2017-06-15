@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import time
+import traceback
+import logging
+import math
+
+# magic numbers:
+
+# server port
+# server host
+# get_task timeout
+# get_task sleep time
+# sub-proc is_alive poll freq
+
+from tomominer.parallel import QueueWorker, funcs
+
+if __name__ == '__main__':
+
+    import sys
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Run a TomoMiner worker.")
+
+    parser.add_argument(        '--host',           default="127.0.0.1",    type=str,   help="Address of TomoMiner server")
+    parser.add_argument('-p',   '--port',           default=5011,           type=int,   help="Port (default 5011)")
+    parser.add_argument('-t',   '--get-task-timeout', default=30,           type=int,   help="Wait time before get_task() returns None if no tasks are available")
+    parser.add_argument('-s',   '--get-task-sleep', default=10,             type=int,   help="Set sleep time between work tries if no work is available.")
+    parser.add_argument('-f',   '--poll-freq',      default=10,             type=int,   help="How often to poll forked process to check if still alive while waiting for result")
+    parser.add_argument('-v',   '--verbose',        default=0,                          action="count", help="set verbosity")
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=max(3 - args.verbose, 0) * 10,
+                        format='%(asctime)-15s %(name)-10s %(levelname)-8s %(message)s')
+
+
+    worker = QueueWorker(args.host, args.port, funcs, get_task_timeout=args.get_task_timeout, get_task_sleep=args.get_task_sleep, poll_freq=args.poll_freq)
+    worker.run()
