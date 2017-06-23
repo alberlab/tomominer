@@ -14,6 +14,9 @@ import logging
 # data) given trained pca
 
 def dimension_reduction_randomized_pca_transform(pca, avg_vol, data, inds):
+  """
+  :todo: documentation
+  """
 
   mat = dimension_reduction_randomized_pca_stack_dif(avg_vol, data)
   red = pca.fit_transform(mat)
@@ -21,6 +24,11 @@ def dimension_reduction_randomized_pca_transform(pca, avg_vol, data, inds):
   return {'inds':inds, 'red':red}
 
 def dimension_reduction_randomized_pca_stack_diff(avg_vol_key, data):
+  """
+  :TODO: documentation
+  :TODO: rename
+  :TODO: move somewhere else
+  """
   vol_avg = get_mrc(avg_vol_key)
   vol_avg_fft = fftshift(fftn(vol_avg))
 
@@ -43,6 +51,9 @@ def dimension_reduction_randomized_pca_stack_diff(avg_vol_key, data):
 
 
 def dimension_reduction_randomized_pca_train(dims, avg_vol_key, data, transform=False):
+  """
+  :todo: documentation
+  """
 
   mat = dimension_reduction_randomized_pca_stack_diff(avg_vol_key, data)
 

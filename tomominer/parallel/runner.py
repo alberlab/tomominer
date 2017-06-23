@@ -9,6 +9,9 @@ from rpc_client import RPCClient
 from task import Task
 
 
+# TODO: Look at the Executor class available in Python 3.2+ for interface ideas.
+# http://docs.python.org/dev/library/concurrent.futures.html#concurrent.futures.Executor
+# original source from PEP: http://code.google.com/p/pythonfutures/source/browse/concurrent/futures/
 
 class Runner:
 
@@ -43,6 +46,7 @@ class Runner:
     """
     Run a single task.
 
+    :TODO: documentation
     """
 
     tries = 1
@@ -133,6 +137,24 @@ class Runner:
         # iterate over the results.
         del state[res.task_id]
         yield res
+
+      # TODO: if we attempt to resubmit jobs taht are active, we need to
+      # make sure they are not going to be competing for resources, or
+      # overwriting each others results.  Currently for instance,
+      # multiple attempts to run a volume averaging may cause issues if
+      # multiple instances are writing the same file.  In this case, a
+      # reader application may attempt to read while a later running
+      # version is rewriting the file and get bad data.
+
+
+#      # when task queue (pending tasks) is empty, re-assign those tasks to idle workers.
+#      if self.work_queue.task_queue_size() == 0 and self.work_queue.in_progress_task_number() > 0 and len(results) == 0:
+#        for task_id in state.keys():
+#          if state[task_id] <= 0:
+#            continue
+#          state[task_id] -= 1
+#          logging.warning("resubmitting in progress task: %s", task_id)
+#          self.work_queue.put_task(task_dict[task_id])
 
 
       time.sleep(1)

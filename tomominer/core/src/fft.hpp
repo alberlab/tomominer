@@ -23,6 +23,9 @@ using arma::span;
   @note We use the convention that the Forward FFT scales by 1, and the
   reverse scales by 1/N.  This is identical to MATLAB's behavior.
   
+  @todo write in-place versions for complex->complex.
+  
+  @todo add fftshift functions for vec/mat.
 */
 
 

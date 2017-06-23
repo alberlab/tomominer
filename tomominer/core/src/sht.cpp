@@ -44,6 +44,9 @@ arma::cx_mat forward_sht(arma::mat f, unsigned int L)
     throw std::exception();
   }
 
+  /**
+    @todo rewrite code to have this done elsewhere.  Maybe fix interpolation so that it does not double count seam?
+  */
   f = f(span(), span(0,f.n_cols-2));
 
   // make sure poles are constant
@@ -85,6 +88,22 @@ arma::cx_mat forward_sht(arma::mat f, unsigned int L)
 
   arma::cx_mat gfft(nlat, nlon);
 
+  /**
+  
+   @todo Optimization: Swap row/col of f, since we operate on rows, so we can
+   pass contiguous memory to fft().  Also fill columns of gfft() and then
+   transpose later.
+  
+  @todo Optimization: Use a single plan since all of the rows are of the same
+  size.  Maybe use the actual fftw interface here to speed things up.
+  
+  @todo Optimization: Consider the split imaginary representation for FFT,
+  since we separate real/complex anyways in the next step, have fftw do that
+  for us.
+  
+  @todo Optimization: make sure we are taking care of alignment by using
+  fftw_malloc() to accelerate fft further.
+  */
   
   for(size_t i = 0; i < gfft.n_rows; i++)
     gfft(i, span()) = fft(arma::conv_to<arma::rowvec>::from(f(i, span())));

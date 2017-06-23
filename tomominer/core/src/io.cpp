@@ -42,6 +42,7 @@ void write_mrc(const arma::cube &c, const char *filename)
 
   unsigned int buf_len = 3 * sizeof(int32_t);
 
+  // TODO: Do we need to wrap these fout.write calls in a try/catch block?
   fout.write(reinterpret_cast<char *>(dim), buf_len);
 
   // next 4 bytes determine the file type.
@@ -170,6 +171,8 @@ arma::cube read_mrc(const char *filename)
 
   // skip the rest of the first 1024 bytes.  Data starts at 1024.
   fin.seekg(1024);
+
+  // TODO: actually read the header and use it correctly.
 
   // we are trying to read 4byte float values.
   if(sizeof(float) != 4)

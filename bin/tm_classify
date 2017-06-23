@@ -61,6 +61,7 @@ def classify(vmal, tmp_dir, host, port, opt):
   for p in range(1, opt.iterations+1):
 
     pass_dir = os.path.join(tmp_dir,  'pass_%03d' % (p,))
+    print opt.iterations, pass_dir
 
     if not os.path.exists(pass_dir):
       os.makedirs(pass_dir)
@@ -177,6 +178,25 @@ def classify(vmal, tmp_dir, host, port, opt):
 
       best_label = [0 for _ in cluster_centers]
 
+      # If JSB method is being used:
+      #################################################################
+      # JSB method.
+      #
+      # From Min email 12-30-2013:
+      #
+      # 1) Perform pairwise alignment between averages. 
+      # 
+      # 2) convert the alignment correlation score to a distance score
+      #  according to the JSB paper  
+      #
+      # 3) use the distance matrix between class averages to perform
+      #  hierarchical clustering
+      #
+      # 4)  use  silhouette to find out optimal clusters.
+      #
+      # 5) within each cluster, align the averages against the average
+      #  that come from the largest subtomogram cluster.
+
       inf = float('inf')
 
       centers_keys = [c for c in cluster_centers]
@@ -208,6 +228,8 @@ def classify(vmal, tmp_dir, host, port, opt):
         if score > best_score:
           best_score = score
           best_label = label
+      # End of JSB method seciton.
+      #-------------------------------------------------------
 
       logging.info("best label: %s", best_label)
       # We now have a list of labels which each cluster belongs to.  For
@@ -222,7 +244,8 @@ def classify(vmal, tmp_dir, host, port, opt):
       for (c,l) in zip(cluster_centers, best_label):
         C[l].append(c)
 
-
+      # TODO: we should pull this data from the pw_align results instead
+      # of calculating it from scratch.
       for l in C:
         largest_key = max((len(clusters[c]),c) for c in C[l])[1]
         other_keys  = [c for c in C[l] if c != largest_key]
@@ -278,6 +301,8 @@ def classify(vmal, tmp_dir, host, port, opt):
 
       raise Exception("Untested code path!")
 
+      # TODO: This code path has not been tested!
+      # TODO: Test before using.
       selected_templates = merge_templates(selected_templates, opt.given_templates)
 
       ## if there are pregiven templates, align the cluster averages against these templates
@@ -318,7 +343,7 @@ def classify(vmal, tmp_dir, host, port, opt):
         bad_cnt += 1
         logging.warn("No transformations for %s, replacing with zeros.  Original r = %s" % (r[0][0],r))
         r = (r[0], (0, (0, (0,0,0), (0,0,0))))
-
+      # TODO: fix this up to use fewer magc numbers
       json_data[i] = dict(subtomogram = r[0][0],
                 mask    = r[0][1],
                 angle     = r[1][1][2],
@@ -475,4 +500,5 @@ if __name__ == '__main__':
 
   data = parse_data(conf)
 
+  args.tmp_dir = os.path.abspath(args.tmp_dir)
   classify(data, args.tmp_dir, args.host, args.port, args)

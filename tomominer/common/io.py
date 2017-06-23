@@ -40,3 +40,13 @@ def put_mrc(mrc, path):
   if not os.path.isfile(path):
     core.write_mrc(mrc, path)
 
+#def np_save(f, arr):
+#  """
+#  Save a numpy array to disk, without overwriting existing data.
+#
+#  :param f The file location to write to.
+#  :param arr The array/volume to save.
+#  """
+#  # Do not overwrite existing files.
+#  elif not os.path.isfile(f):
+#    np.save(f, arr)

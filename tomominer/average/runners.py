@@ -28,6 +28,8 @@ def volume_average(host, port, data, vol_shape, pass_dir, use_fft):
     map_fn  = "average.vol_avg_map"
     reduce_fn = "average.vol_avg_reduce"
 
+  # TODO: use heuristic or data from Runner() to determine
+
   N = len(data)
 
   if N < 1000:

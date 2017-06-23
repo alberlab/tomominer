@@ -34,6 +34,7 @@ arma::cube dilate(const arma::cube &vol, int se_width)
   if(se_width % 2 == 0)
     throw fatal_error() << "dilate: structuring element size must be odd";
 
+  //! @todo find true break even point for when _large becomes faster.
   if( se_width <= 5 )
     return dilate_small_se(vol, se_width);
   else

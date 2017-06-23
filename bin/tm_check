@@ -57,9 +57,15 @@ def parse_vmal(data):
 
 def check(data):
 
-
+    #verbose = True
     verbose = False
 
+    # 1) Check for NaN values in volume.
+    # 2) Check for duplicate filenames in subtomogram records.
+    # 3) TODO: Check for duplicate subtomogram records? md5sum?
+
+    # load all data into redis.
+    # TODO: look at bulk load options.
 
     vol_cnt = Counter()
 
@@ -84,7 +90,11 @@ if __name__ == '__main__':
 
     parser.add_argument('-v', '--verbose', default=0, action="count", help="set verbosity")
     parser.add_argument('config', metavar='config', type=str, nargs='+', help='data configuration files to be checked.')
-
+    # TODO option parser for different kinds of checks.
+    # Not just filename, but maybe md5sum of contents as an option?
+    # Other imaging artifacts? Or issues?
+    # Provide a stats option which will output interesting data on the
+    # complexes.  Should that be a separate program?
     args = parser.parse_args()
 
     logging.basicConfig(level=max(3 - args.verbose, 0) * 10,

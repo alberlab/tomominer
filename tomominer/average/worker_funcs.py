@@ -72,6 +72,7 @@ def vol_avg_fft_reduce(vm_in, vol_shape, n_vol, pass_dir):
 
   """
 
+  # TODO: what is the correct value?
   mask_threshold = 1.0
 
   fft_sum  = np.zeros(vol_shape, dtype=np.complex128, order='F')
@@ -166,6 +167,7 @@ def vol_avg_reduce(vm_in, vol_shape, n_vol, pass_dir):
   :todo: should this use mask_threshold?
   """
 
+  # TODO: what is the correct value?
   mask_threshold = 1.0
 
   vol_sum  = np.zeros(vol_shape, dtype=np.float64, order='F')

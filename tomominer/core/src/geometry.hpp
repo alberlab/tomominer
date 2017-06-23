@@ -139,6 +139,8 @@ arma::vec3 get_fftshift_center(const arma::cube &vol);
   @param angs A vector of Euler zyz-right angles to convert.
   @param cutoff a distance to use for filtering.
 
+  @todo this in O(N^2) in the number of angles.  Use a method to reduce this
+  if there are often many angles that need to be considered.
 
 */
 std::tuple<std::vector<euler_angle>, std::vector<double> > angle_list_redundancy_removal_zyz(std::vector<euler_angle> &angs, std::vector<double> &scores, double cutoff);
@@ -152,6 +154,7 @@ std::tuple<std::vector<euler_angle>, std::vector<double> > angle_list_redundancy
   The original version converts the angles to rotation matrices and then
   finds the L2 norm between those.  
   
+  @todo Decide on a best distance method.
 
   Metrics for 3D Rotations: Comparison and Analysis
   Du Q. Huynh

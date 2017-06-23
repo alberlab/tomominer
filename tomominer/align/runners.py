@@ -3,6 +3,8 @@ import numpy as np
 
 from tomominer.parallel import Runner
 
+# TODO: Add real-space rotational alignment runner.
+# See worker function code: real_space_rotation_align()
 
 def all_vs_all_alignment(host, port, data1, data2, L):
   """
@@ -91,6 +93,8 @@ def pairwise_alignment(host, port, data, L):
 
   runner = Runner(host, port)
 
+  # TODO: consider breaking into chunks.  For now do each one seperate.
+
   tasks = []
 
   corr    = np.eye(len(data), dtype=np.float)
@@ -130,6 +134,7 @@ def align_vols_to_templates(host, port, data, templates, L):
   :returns:      List of (args,results) from alignment results.
   """
 
+  # TODO: Come up with a better return structure.
 
   runner = Runner(host, port)
 
@@ -146,3 +151,36 @@ def align_vols_to_templates(host, port, data, templates, L):
   return results
 
 
+#def merge_templates(host, port, data1, data2, L):
+#  """
+#  Calculate all alignment between members of data_1 and members of data_2
+#
+#  :param host   server to submit work units to.
+#  :param port   port of server to submit work units to.
+#  :param data1  A list of templates. (volume, mask) pairs.
+#  :param data2  A second list of templates (volume, mask) pairs
+#  :param L    Angle discritization to use in alignment, sample angle = 2\pi/L
+#
+#  :return The alignments found between the two template groups.
+#  """
+#
+#  # TODO: is this function needed?  Is it identical to something else above?
+#  # This is currently never called.
+#
+#  runner = Runner(host, port)
+#
+#  # TODO: consider breaking into chunks.  For now do each one seperate.
+#
+#  tasks = []
+#
+#  # TODO: check order of parameters to combined_search if we use this code.
+#  for d1 in data1:
+#    for d2 in data2:
+#      t = runner.make_task('core.combined_search', args=(d1[0], d1[1], d2[0], d2[1], L))
+#      tasks.append(t)
+#
+#  results = []
+#  # run all first round reduce tasks.
+#  for res in runner.run_batch(tasks):
+#    results.append((res.args, res.result))
+#  return results

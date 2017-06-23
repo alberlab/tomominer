@@ -1,7 +1,9 @@
 
-import json
+import os, json
 import numpy as np
 
+# TODO: Not all options set are parsed: e.g. cluster_min_size
+# And some are parsed but not preset: template_cluster_size_min
 
 class config_options:
   """
@@ -158,9 +160,20 @@ def parse_data(conf):
       raise Exception(repr(record))
     vol_path = record['subtomogram']
 
+    # convert to absolute path if needed
+    if not os.path.isabs(vol_path):
+        vol_path = os.path.abspath(vol_path)
+    assert os.path.isfile(vol_path)     # make sure that the file exists
+
     if 'mask' not in record:
       raise Exception(repr(record))
     mask_path = record['mask']
+
+    # convert to absolute path if needed
+    if not os.path.isabs(mask_path):
+        mask_path = os.path.abspath(mask_path)
+    assert os.path.isfile(mask_path)     # make sure that the file exists
+
 
     if 'angle' in record:
       if len(record['angle']) != 3:

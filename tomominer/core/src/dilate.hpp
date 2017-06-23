@@ -83,6 +83,8 @@
   @param se_width size of the structuring element.  SE will be a cube with side length se_width.
   @return the dilated cube.
 
+  @todo support other shaped masks (structuring elements)
+  @todo have periodic boundary support be a flag and support normal method as well.
 */
 arma::cube dilate(const arma::cube &vol, int se_width);
 

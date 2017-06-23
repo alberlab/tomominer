@@ -27,6 +27,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # TODO: handle parsed args and pass into server.
 
     logging.basicConfig(level=max(3 - args.verbose, 0) * 10,
                         format='%(asctime)-15s %(name)-10s %(thread)-10s %(levelname)-8s %(message)s')

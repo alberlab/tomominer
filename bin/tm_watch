@@ -4,6 +4,8 @@ import time
 
 from tomominer.parallel.rpc_client import RPCClient
 
+# TODO: command line options?
+# TODO: live commands for interacting.  Use console interface.
 if __name__ == '__main__':
 
     import sys

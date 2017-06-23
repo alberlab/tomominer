@@ -75,6 +75,7 @@ def real_space_rotation_align(v1, m1, v2, m2, L=36):
 
   cor_array = cor12 / (sqt_cor11 * sqt_cor22)
 
+  # TODO: Sorting is handled in C++ code for most other cases. Do the same here.
   (cors, angs) = core.local_max_angles(cor=cor_array)
   i = np.argsort(-cors)
   cors = cors[i]

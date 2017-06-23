@@ -8,6 +8,8 @@ Compute the correlation between two subtomograms.
 Usage:
     tm_fsc vol1.mrc vol2.mrc
 
+Verify using EMAN2:
+    http://blake.bcm.edu/emanwiki/EMAN2/Eman1Transition/CommandLine
 
 """
 

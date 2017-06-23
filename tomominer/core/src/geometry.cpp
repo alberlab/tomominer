@@ -24,6 +24,16 @@ euler_angle::euler_angle(const arma::vec3 &v)
   (*this)(2) = v(2);
 }
 
+/*
+euler_angle::euler_angle(std::initializer_list<double> list)
+{
+  if(list.size() != 3)
+    throw std::exception();
+  size_t i = 0;
+  for(auto it = list.begin(); it != list.end(); it++)
+    (*this)(i++) = *it;
+}
+*/
 
 euler_angle::euler_angle(double a0, double a1, double a2)
 {
@@ -62,6 +72,16 @@ rot_matrix::rot_matrix(const arma::vec3 &v)
   (*this) = euler_angle(v).as_rot_matrix();
 }
 
+/*
+rot_matrix::rot_matrix(std::initializer_list<double> list)
+{
+  if(list.size() != 9)
+    throw std::exception();
+  size_t i = 0;
+  for(auto it = list.begin(); it != list.end(); it++)
+    (*this)(i++) = *it;
+}
+*/
 
 rot_matrix euler_angle::as_rot_matrix() const
 {

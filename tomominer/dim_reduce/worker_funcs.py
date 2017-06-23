@@ -10,6 +10,7 @@ from tomominer import filtering
 
 def neighbor_product(v):
   """
+  :TODO: documentation
 
   Calculate product of one voxel and all its neighbors
 
@@ -43,6 +44,8 @@ def pca_stack_diff(avg_vol_key, avg_mask_key, vmal, smoothing_gauss_sigma, voxel
   Calculate masked differences between subtomograms and gloval average, and
   form a matrix stacking all differences
 
+  :TODO: documentation.
+
   :param data:
   :param avg_key:
   :param pass_dir:
@@ -74,6 +77,9 @@ def pca_stack_diff(avg_vol_key, avg_mask_key, vmal, smoothing_gauss_sigma, voxel
   return m_name
 
 def pca_stack_diff_merge(rows, pass_dir):
+  """
+  :TODO: documentation
+  """
 
   rows = [np.load(_) for _ in rows]
 
@@ -87,6 +93,9 @@ def pca_stack_diff_merge(rows, pass_dir):
 
 def masked_difference_given_vol_avg_fft(v, m, ang, loc, vol_avg_fft, vol_mask_avg, smoothing_gauss_sigma=0):
   """
+  :TODO: documentation
+
+  # mxu: IMPORTANT: correction of dimension reduction procedure according to the paper  Heumann12
 
   :param v:
   :param m:
@@ -119,6 +128,7 @@ def neighbor_covariance_collect_info(vol_avg_key, mask_avg_key, vmal, pass_dir, 
   Collecting information for calculating the neighbor covariance, calculated
   at worker side
 
+  :todo: docs
   :param avg_key:
   :param vmal:
   :param smoothing_gauss_sigma:
@@ -166,6 +176,7 @@ def neighbor_covariance_merge(partials, N, pass_dir):
   """
   The final reduce step for collecting sum_local and neighborhood_prod_sum
 
+  :TODO: documentation
   """
 
   avg_global      = sum( np.load(r[0]) for r in partials ) / N

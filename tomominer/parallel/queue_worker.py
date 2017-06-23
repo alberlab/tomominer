@@ -55,6 +55,9 @@ class QueueWorker:
     :param task: The task to run locally.
     """
 
+    # TODO: this probably does not need to be separate from run().  Merge.
+
+    # TODO: split out lookup logic into own function to make this more readable.
 
     if task.method.startswith('_'):
       task.fail("method starts with underscore")

@@ -16,6 +16,7 @@ from tomominer.core         import read_mrc, write_mrc
 
 from tomominer.align.runners        import one_vs_all_alignment
 from tomominer.average.runners      import volume_average
+from tomominer.filtering import gaussian_smoothing, lowpass_smoothing
 
 def parse_data(conf):
     """
@@ -60,7 +61,7 @@ def parse_data(conf):
         subs.append((str(vol_path), str(mask_path), ang, loc))
     return subs
 
-def average(vmal, tmp_dir, host, port, use_fft, L, N):
+def average(vmal, tmp_dir, host, port, use_fft, L, N, smoothing):
     """
     Average Pipeline.
 
@@ -78,7 +79,10 @@ def average(vmal, tmp_dir, host, port, use_fft, L, N):
     :param use_fft: Use FFT-based averaging.
     :param L: Sampling frequency for angular search (2*pi/L is sampling).
     :param N: Number of iterations of averaging to run.
+    :param smoothing: If given, the type of smoothing to apply on each iteration.
 
+    :todo: rewrite to shortcut reading the file if we are going to skip to the
+           next iteration.  startup on 100k with 23 rounds done takes too long.
     """
 
     start_time = time.time()
@@ -102,7 +106,7 @@ def average(vmal, tmp_dir, host, port, use_fft, L, N):
 
             with open(json_file) as f:
                 json_data = json.load(f)
-            vmal = parse_data( json_data )
+            vmal = parse_data(json_data)
 
             # use the vmal in this round and skip to the next iteration.
             continue
@@ -120,8 +124,18 @@ def average(vmal, tmp_dir, host, port, use_fft, L, N):
 
         shutil.move(vol_key,  new_vol_key)
         shutil.move(mask_key, new_mask_key)
-
         avg = (new_vol_key, new_mask_key)
+
+        # If we smooth the average, do so, and use that as the alignment target.
+        if smoothing:
+            if smoothing == 'gaussian':
+                # TODO: finish implementation.
+                smoothed_vol_key = gaussian_smoothing(vol_key, smoothed_vol_key)
+            else:
+                smoothed_vol_key = lowpass_smoothing(vol_key, smoothed_vol_key)
+            new_smoothed_vol_key  = os.path.join(pass_dir, 'template_smoothed_vol_%03d_%03d.mrc'  % (p,0))
+            shutil.move(smoothed_vol_key,  new_smoothed_vol_key)
+            avg = (new_smoothed_vol_key, new_mask_key)
 
         # Align each volume against average.
 
@@ -142,13 +156,12 @@ def average(vmal, tmp_dir, host, port, use_fft, L, N):
             if score == 0.0:
                 bad_cnt += 1
 
-            json_data.append( dict(
-                                subtomogram = v[0],
-                                mask        = v[1],
-                                angle       = ang,
-                                loc         = loc,
-                                template    = avg[0],
-                                label       = 0))
+            json_data.append(dict(subtomogram = v[0],
+                                  mask        = v[1],
+                                  angle       = ang,
+                                  loc         = loc,
+                                  template    = avg[0],
+                                  label       = 0))
 
         if bad_cnt > 0:
             logging.warn("Bad transformations for %s of %s" % (bad_cnt, len(json_data)))
@@ -159,6 +172,10 @@ def average(vmal, tmp_dir, host, port, use_fft, L, N):
     return json_data
 
 def write_json_data(data, json_file):
+    """
+    :todo: split out into io.py with a read_json_data function.  Rename to read/write_vmal and add validation of json structure.
+
+    """
     json_data = []
 
     for d in data:
@@ -197,6 +214,7 @@ if __name__ == '__main__':
     parser.add_argument('-n',   '--iterations', default=20,             type=int,   help="Number of averaging rounds to run.")
 
     parser.add_argument("-v", "--verbose", dest="verbose_count", action="count", default=0, help="set verbosity")
+    parser.add_argument("--smoothing", choice=['gaussian', 'lowpass'], help="Type of smoothing to apply, if any.", default=None)
 
     parser.add_argument("--fft", action='store_true', help="Use FFT-space averaging")
 
@@ -210,4 +228,4 @@ if __name__ == '__main__':
 
     data = parse_data(conf)
 
-    average(data, args.tmp_dir, args.host, args.port, args.fft, args.L, args.iterations)
+    average(data, args.tmp_dir, args.host, args.port, args.fft, args.L, args.iterations, args.smoothing)

@@ -14,6 +14,10 @@
   Extensions to the armadillo library.  These are mostly convenience
   functions that I have run across while trying to convert some MATLAB code.
   
+  @todo integrate these better into the armadillo library.  Look at source for ideas on how to implement these functions.  Send anything good thats also useful back.
+  @todo support for cube.is_vec(). cube.is_mat(), cube.is_*, and conversions between them.
+  @todo add elementwise isnan/isfinite/etc... so we can do find(isnan(X)) and such.
+  @todo figure out what arma_hot/arma_inline/etc... are, and how to use them to write armadillo functions.
 */
 
 
@@ -121,6 +125,7 @@ std::tuple<arma::Cube<T>, arma::Cube<T>, arma::Cube<T> > ndgrid(arma::Col<T> v1,
   arma::Cube<T> A2(v1.n_elem, v2.n_elem, v3.n_elem);
   arma::Cube<T> A3(v1.n_elem, v2.n_elem, v3.n_elem);
 
+  //! @todo is there a more efficient way to do this?
   for(size_t i = 0; i < v1.n_elem; i++)
     for(size_t j = 0; j < v2.n_elem; j++)
       for(size_t k = 0; k < v3.n_elem; k++)

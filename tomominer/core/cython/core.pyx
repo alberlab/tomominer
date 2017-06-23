@@ -19,7 +19,9 @@ cdef extern from "wrap_core.hpp":
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def write_mrc(np.ndarray[np.double_t, ndim=3] vol, str filename):
-
+  """
+  TODO: documentation
+  """
 
   cdef double *vol_data
   cdef unsigned int n_r, n_c, n_s
@@ -38,7 +40,9 @@ def write_mrc(np.ndarray[np.double_t, ndim=3] vol, str filename):
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def read_mrc(str filename):
-
+  """
+  TODO: documentation
+  """
 
   cdef double *v_data
   cdef unsigned int n_r, n_c, n_s
@@ -63,7 +67,9 @@ def read_mrc(str filename):
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def combined_search(np.ndarray[np.double_t, ndim=3] vol1, np.ndarray[np.double_t, ndim=3] mask1, np.ndarray[np.double_t, ndim=3] vol2, np.ndarray[np.double_t, ndim=3] mask2, unsigned int L):
-
+  """
+  TODO: documentation
+  """
 
   cdef double *v1_data
   cdef double *m1_data
@@ -212,7 +218,9 @@ def local_max_angles(np.ndarray[np.double_t, ndim=3] cor, unsigned int peak_spac
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def rotate_vol_pad_mean(np.ndarray[np.double_t, ndim=3] vol, np.ndarray[np.double_t, ndim=1] ea, np.ndarray[np.double_t, ndim=1] dx):
-
+  """
+  TODO: documentation
+  """
 
   cdef double *vol_data
   cdef double *ea_data
@@ -245,7 +253,9 @@ def rotate_vol_pad_mean(np.ndarray[np.double_t, ndim=3] vol, np.ndarray[np.doubl
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def rotate_vol_pad_zero(np.ndarray[np.double_t, ndim=3] vol, np.ndarray[np.double_t, ndim=1] ea, np.ndarray[np.double_t, ndim=1] dx):
-
+  """
+  TODO: documentation
+  """
 
   cdef double *vol_data
   cdef double *ea_data
@@ -276,7 +286,9 @@ def rotate_vol_pad_zero(np.ndarray[np.double_t, ndim=3] vol, np.ndarray[np.doubl
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def rotate_mask(np.ndarray[np.double_t, ndim=3] mask, np.ndarray[np.double_t, ndim=1] ea):
-
+  """
+  TODO: documentation
+  """
 
   cdef double *mask_data
   cdef double *ea_data

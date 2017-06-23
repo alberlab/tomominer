@@ -11,6 +11,8 @@ import logging
 # the server.  Then the RPCServer can get that information from the worker if
 # they send that message first.
 
+# TODO: This should be rewritten using Tornado or something similar.
+
 class RPCHandler(SocketServer.StreamRequestHandler):
   """
   Connection object that communicates with a RPCClient object.

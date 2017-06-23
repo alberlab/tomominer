@@ -60,5 +60,6 @@ def test_0(host, port, N=100, seed=0, mean=10, exc_rate=0.0, fail_rate=0.0, max_
   succ = sum([1 for r in results if not r.error])
   fail = len(results) - succ
 
+  # TODO: print other statistics.
   print "succ:", succ
   print "fail:", fail

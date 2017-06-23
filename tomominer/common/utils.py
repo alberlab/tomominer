@@ -7,6 +7,7 @@ def snr(v1, v2):
   """
   Estimate the signal to noise ratio given two realizations of a noisy data set.
 
+  TODO: reference for method
   """
 
   pr = stats.pearsonr(v1.flatten(), v2.flatten())
@@ -15,6 +16,11 @@ def snr(v1, v2):
   return corr / (1.0 - corr)
 
 def fourier_shell_correlation(v1, v2, bandwidth_radius = 1.0):
+  """
+  from: Min
+
+  :todo: verify.
+  """
 
 
   size = v1.shape

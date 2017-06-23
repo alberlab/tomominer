@@ -50,6 +50,6 @@ setup(  name        = 'tomominer',
         package_dir = { 'tomominer'         : 'tomominer',
                         'tomominer.core'    : 'tomominer/core/cython/',
                       },
-        scripts     = ['bin/tm_worker', 'bin/tm_server', 'bin/tm_classify', 'bin/tm_average', 'bin/tm_check', 'bin/tm_watch', 'bin/tm_corr', 'bin/tm_fsc', 'bin/tm_test', 'bin/tm_run_workers_local'],
+        scripts     = ['bin/tm_worker', 'bin/tm_server', 'bin/tm_classify', 'bin/tm_average', 'bin/tm_check', 'bin/tm_watch', 'bin/tm_corr', 'bin/tm_fsc', 'bin/tm_test', 'bin/tm_run_workers_local', 'bin/tm_smooth'],
         cmdclass   = {'build_ext': build_ext},
      )

@@ -216,6 +216,7 @@ class QueueServer:
     :param task: This must be an instance of a Task object.  The server
           will make assumptions about internal fields.
 
+    :todo: perform type checking on task object.
     """
     with self.lock:
       if not isinstance(task.max_time, int) or task.max_time < 0:
@@ -248,7 +249,12 @@ class QueueServer:
     :returns: True if the task is queued or running.  False if crashed, done,
     or otherwise unknown
 
+    :todo: modify so we can call get_state(proj, None) to get info on project?
+    :todo: make proj_id unnecessary?
     """
+
+    # TODO: make this useful again.  Add a self.running set to track
+    # currently running processes.
 
     with self.lock:
       if proj_id not in self.done_queues:
@@ -296,6 +302,18 @@ class QueueServer:
             # Return the delay until the next job starts.
             return start_time - now() + 1.0
 
+          # From here on we will be submitting the task to the worker.
+          # TODO(zfrazier): Add burstable code back in.  See it commented out above.
+
+#          # If it is a "burstable" task, put the next run time as current time.
+#          if task.burst > 0:
+#            logging.debug("get_task: burst mode enabled.  Setting another copy"
+#                          " in queue at time=now, %s", task_id)
+#            self.todo_queue.put((now(), task_id))
+#            self.tasks[task_id].burst -= 1
+#          # If we can't run it immediately, check if we are allowed to run it
+#          # again.  If so, place it at now + next_time()
+#          else:
 
 
           if self.tasks[task_id].tries < task.max_tries:
@@ -389,6 +407,8 @@ class QueueServer:
   def get_results(self, proj_id):
     """
     For a given project, return any completed tasks.
+
+    :todo: take a timeout?  call get(timeout) instead of get_nowait()?
 
     :param proj_id: The project to return tasks for.
     """

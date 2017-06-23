@@ -26,6 +26,7 @@ from worker_funcs import neighbor_product
 
 def pca_stack_diff(host, port, vmal, global_avg_vm, pass_dir, smoothing_gauss_sigma=0, voxel_mask_inds=None):
   """
+  :todo: documentation
 
   :param host: Host where a tm_server instance is running
   :param port: Port where a tm_server instance is running
@@ -36,6 +37,8 @@ def pca_stack_diff(host, port, vmal, global_avg_vm, pass_dir, smoothing_gauss_si
 
   runner = Runner(host, port)
 
+  # TODO: better method.
+  #chunk_size = max(len(vmal)/50, 20)
   chunk_size = int(sqrt(len(vmal)))
 
   avg_vol_key, avg_mask_key = global_avg_vm
@@ -63,10 +66,14 @@ def pca_stack_diff(host, port, vmal, global_avg_vm, pass_dir, smoothing_gauss_si
   # actually return the loaded data.
   return np.load(res.result)
 
+  # TODO: In Min's version the matrices are returned directly to the root
+  # node, where they are combined instead of being merged on a computational node.
+  #return np.vstack(rows)
 
 
 def neighbor_covariance_avg_parallel(host, port, vmal, global_avg_vm, pass_dir, smoothing_gauss_sigma=0):
   """
+  TODO: documentation
 
   calculate the covariance between neighbor voxels, then take average
 
@@ -81,6 +88,8 @@ def neighbor_covariance_avg_parallel(host, port, vmal, global_avg_vm, pass_dir, 
   runner = Runner(host, port)
 
   tasks = []
+  # TODO: better method.
+  #chunk_size = len(vmal)/50
   chunk_size = int(sqrt(len(vmal)))
   #chunk_size = max(chunk_size, 20)
   #chunk_size = min(chunk_size, 100)
@@ -93,6 +102,7 @@ def neighbor_covariance_avg_parallel(host, port, vmal, global_avg_vm, pass_dir, 
 
   results = [ _.result for _ in runner.run_batch(tasks) ]
 
+  # TODO: consider moving this to a finalizer function.
 
   t = runner.make_task('dim_reduce.neighbor_covariance_merge', allow_resubmit=False, args=(results, len(vmal), pass_dir))
   res = runner.run_single(t)
@@ -105,48 +115,22 @@ def neighbor_covariance_avg_parallel(host, port, vmal, global_avg_vm, pass_dir, 
 
   cov_avg = np.load(cov_avg_name)
   return cov_avg
+#
+#  avg_global      = sum( np.load(r[0]) for r in results ) / len(vmal)
+#  neighbor_prod_avg   = sum( np.load(r[1]) for r in results ) / len(vmal)
+#
+#  global_neighbor_prod = neighbor_product(avg_global)
+#
+#  cov = neighbor_prod_avg - global_neighbor_prod
+#
+#  cov_avg = np.mean(cov, axis=3)
+#
+#  print "Calculated neighbor covariance : %2.6f sec" % (time.time() - start_time)
+#
+#  return cov_avg
 
 
 # Code dumped from filtering/gaussian.py and general_util/vol.py
-
-
-def grid_displacement_to_center(size):
-  # construct a gauss function whose center is at center of volume
-  grid = np.mgrid[0:size[0], 0:size[1], 0:size[2]]
-  mid_co = np.array(size) / 2
-
-  for dim in range(3):
-    grid[dim, :, :, :] -= mid_co[dim]
-
-  return grid
-
-def grid_distance_sq_to_center(grid):
-  dist_sq = np.zeros(grid.shape[1:])
-  for dim in range(3):
-    dist_sq += np.squeeze(grid[dim, :, :, :]) ** 2
-  return dist_sq
-
-def gauss_function(size, sigma):
-
-  grid = grid_displacement_to_center(size)
-  dist_sq = grid_distance_sq_to_center(grid)
-  # gauss function
-  g = (1.0 / ( (2 * np.pi)**(3.0/2)  * (sigma**3)) ) * np.exp( - (dist_sq)  / (2.0 * (sigma**2)))
-
-  return g
-
-
-# 3D gaussian filtering of a volume (v)
-def smooth(v, sigma):
- 
-  g = gauss_function(size=v.shape, sigma=sigma)
-
-  # use ifftshift(g) to move center of gaussian to origin
-  g_fft = fftn(ifftshift(g))
-
-  v_conv = np.real( ifftn( fftn(v) * np.conj( g_fft ) ) )
-
-  return v_conv
 
 
 def covariance_filtered_pca(host, port, vmal, dims, global_avg_vm, cov_avg_file, pass_dir, gauss_smoothing_sigma=0, max_features=1000, n_iter=15):
@@ -154,6 +138,8 @@ def covariance_filtered_pca(host, port, vmal, dims, global_avg_vm, cov_avg_file,
   Calculate average covariance between neighbor voxels, then gaussian smooth
   and segment to identify a small amount of voxels as features for PCA
   analysis
+
+  :TODO: documentation
 
   :param host:
   :param port:
@@ -175,10 +161,12 @@ def covariance_filtered_pca(host, port, vmal, dims, global_avg_vm, cov_avg_file,
   #
   # Add back in as needed.
   #
+  # TODO: there are 3 different gauss_smoothing variables?  Are they actually all necessary?
 
 
   start_time = time.time()
 
+  # TODO: wrap the load in a try, if it fails also do else case.
 
   # try to load existing covariance data.
   if os.path.exists(cov_avg_file):
@@ -192,7 +180,7 @@ def covariance_filtered_pca(host, port, vmal, dims, global_avg_vm, cov_avg_file,
       np.save(f, cov_avg)
 
   if gauss_smoothing_sigma > 0:
-    cov_avg = smooth(cov_avg, sigma=gauss_smoothing_sigma)
+    cov_avg = utils.smooth(cov_avg, sigma=gauss_smoothing_sigma)
 
   # restrict number of features to max_features
   #

@@ -63,6 +63,7 @@ class Task(object):
     """ True if an Exception is thrown, or this variable is simply set
     during the function call"""
 
+    # TODO expand this into a traceback object that is sent back.
 
     self.todo_queue_total   = None
     """ Total time spent in the server.todo_queue waiting for a worker

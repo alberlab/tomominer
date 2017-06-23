@@ -55,6 +55,13 @@ void cubic_interpolater::update_data()
   
   // fill in missing data:
   //
+  //! @todo this is the slow but easy way to do this.  optimize.
+  // 
+  // We need three passes. In the first the sides are set, in the second the
+  // edges, and in the third the corners.  In each additional round, the data
+  // from before is still correct.  We do not need to actually calculate it
+  // twice.  This was much less work however.  In the future, do this, then
+  // iterate over edges, then corners to improve speed.
   for(arma::uword i = 0; i < 3; i++)
   {
     f(span((arma::uword)0),   span(), span()) = 3 * f(span((arma::uword)1), span(), span()) - 3 * f(span((arma::uword)2),   span(), span()) + f(span((arma::uword)3),   span(), span());
